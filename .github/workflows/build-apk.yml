@@ -27,7 +27,7 @@ jobs:
       run: npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/android
 
     - name: Generate App Icons
-      run: npx capacitor-assets generate --android --icon public/logo.svg
+      run: npx capacitor-assets generate --android
 
     - name: Sync Capacitor
       run: npx cap sync android
