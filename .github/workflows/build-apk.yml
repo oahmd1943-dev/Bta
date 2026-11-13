@@ -24,7 +24,7 @@ jobs:
       run: npm run build
 
     - name: Install Capacitor CLI
-      run: npm install @capacitor/cli@latest @capacitor/core@latest
+      run: npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/android
 
     - name: Sync Capacitor
       run: npx cap sync android
