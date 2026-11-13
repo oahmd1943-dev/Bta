@@ -1,0 +1,277 @@
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap");
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Cairo", ui-sans-serif, system-ui, "Segoe UI", Tahoma, sans-serif;
+
+  --color-ink-950: #050d1b;
+  --color-ink-900: #081830;
+  --color-ink-800: #0c2342;
+  --color-ink-700: #133461;
+  --color-ink-600: #1b4580;
+
+  --color-brand-50: #edfbf4;
+  --color-brand-100: #d5f6e5;
+  --color-brand-200: #aeeccf;
+  --color-brand-300: #79ddb2;
+  --color-brand-400: #41c790;
+  --color-brand-500: #1cb878;
+  --color-brand-600: #109461;
+  --color-brand-700: #0e7650;
+  --color-brand-800: #0f5e42;
+  --color-brand-900: #0d4d38;
+
+  --color-surface: #f4f7fb;
+  --color-budget: #7c3aed;
+
+  --shadow-card: 0 1px 2px rgb(15 35 65 / 0.04), 0 10px 30px -12px rgb(15 35 65 / 0.14);
+  --shadow-float: 0 18px 50px -18px rgb(8 24 48 / 0.35);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface font-sans text-slate-800 antialiased dark:bg-[#060e1c] dark:text-slate-100;
+    text-rendering: optimizeLegibility;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  ::selection {
+    background: #aeeccf;
+    color: #0d4d38;
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #23344e;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-3xl border border-slate-200/80 bg-white shadow-card dark:border-white/10 dark:bg-[#0b172a];
+  }
+
+  .input-base {
+    @apply h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-medium text-slate-800 outline-none transition placeholder:font-normal placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-white/[0.07];
+  }
+
+  .label-base {
+    @apply mb-1.5 block text-[12.5px] font-bold text-slate-600 dark:text-slate-300;
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.015em;
+  }
+
+  .focus-ring {
+    @apply outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25;
+  }
+}
+
+/* ------- motion ------- */
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-screen {
+  animation: screenIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-pop {
+  animation: popIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: fadeIn 0.25s ease-out both;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-sheet {
+  animation: slideInRight 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes toastUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 18px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.animate-toast {
+  animation: toastUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(1deg);
+  }
+}
+.animate-floaty {
+  animation: floaty 4.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+.animate-shimmer {
+  animation: shimmer 2.6s ease-in-out infinite;
+}
+
+@keyframes splashBar {
+  from {
+    width: 4%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.animate-splash-bar {
+  animation: splashBar 1.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes drawGrow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.bar-grow {
+  transform-origin: bottom;
+  animation: drawGrow 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pulseSoft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.animate-pulse-soft {
+  animation: pulseSoft 2s ease-in-out infinite;
+}
+
+/* number inputs inside RTL forms */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  #print-guide,
+  #print-guide * {
+    visibility: visible !important;
+  }
+  #print-guide {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 16px 24px 24px !important;
+    background: #fff !important;
+    color: #111 !important;
+  }
+  [role="dialog"],
+  [role="dialog"] > div {
+    position: static !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  #print-guide * {
+    color: #111 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
