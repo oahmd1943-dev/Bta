@@ -19,6 +19,7 @@ import { downloadExcel } from "@/lib/excel";
 import { amount, num, safeNumber, toSyp } from "@/lib/format";
 import { cn } from "@/utils/cn";
 import { PageIntro } from "@/components/PageIntro";
+import { ImagePicker, ItemThumb } from "@/components/ItemImage";
 import {
   Button,
   Chip,
@@ -36,27 +37,13 @@ import {
 
 type SortKey = "newest" | "name" | "qty" | "value";
 
-const AVATAR_TONES = [
-  "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
-  "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-  "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",
-];
-
-function avatarTone(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) % 997;
-  return AVATAR_TONES[hash % AVATAR_TONES.length];
-}
-
 interface ItemForm {
   name: string;
   category: string;
   qty: string;
   purchase: string;
   sale: string;
+  image?: string;
 }
 
 export default function Inventory() {
@@ -76,6 +63,7 @@ export default function Inventory() {
     qty: "1",
     purchase: "",
     sale: "",
+    image: undefined,
   });
 
   const rate = state.exchangeRate;
@@ -128,6 +116,7 @@ export default function Inventory() {
       qty: "1",
       purchase: "",
       sale: "",
+      image: undefined,
     });
     setFormOpen(true);
   };
@@ -142,6 +131,7 @@ export default function Inventory() {
       qty: String(item.qty),
       purchase: String(item.purchaseUsd),
       sale: String(item.saleUsd),
+      image: item.image,
     });
     setFormOpen(true);
   };
@@ -164,6 +154,7 @@ export default function Inventory() {
       qty,
       purchaseUsd: purchase,
       saleUsd: sale,
+      image: form.image,
     };
     const result = editing ? updateItem(editing.id, payload) : addItem(payload);
     if (!result.ok) return setError(result.error || "تعذّر الحفظ");
@@ -345,14 +336,7 @@ export default function Inventory() {
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
-                            <span
-                              className={cn(
-                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[13px] font-extrabold",
-                                avatarTone(item.name),
-                              )}
-                            >
-                              {item.name.trim().charAt(0)}
-                            </span>
+                            <ItemThumb item={item} />
                             <div className="min-w-0">
                               <p className="truncate text-[12.5px] font-extrabold text-slate-800 dark:text-slate-100">
                                 {item.name}
@@ -459,14 +443,7 @@ export default function Inventory() {
                     className="rounded-2xl border border-slate-200/80 bg-white p-3.5 dark:border-white/[0.07] dark:bg-white/[0.02]"
                   >
                     <div className="flex items-start gap-2.5">
-                      <span
-                        className={cn(
-                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[13px] font-extrabold",
-                          avatarTone(item.name),
-                        )}
-                      >
-                        {item.name.trim().charAt(0)}
-                      </span>
+                      <ItemThumb item={item} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[13px] font-extrabold text-slate-800 dark:text-slate-100">
                           {item.name}
@@ -588,6 +565,12 @@ export default function Inventory() {
           </>
         }
       >
+        <div className="mb-4">
+          <ImagePicker
+            value={form.image}
+            onChange={(image) => setForm((prev) => ({ ...prev, image }))}
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="اسم الصنف" className="sm:col-span-2" htmlFor="item-name">
             <Input

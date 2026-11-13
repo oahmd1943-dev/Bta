@@ -12,6 +12,8 @@ export interface Item {
   purchaseUsd: number;
   saleUsd: number;
   createdAt: string;
+  /** Compressed JPEG data URL saved on the device. */
+  image?: string;
 }
 
 export interface Sale {
@@ -25,6 +27,8 @@ export interface Sale {
   unitCostUsd: number;
   date: string;
   exchangeRate: number;
+  /** Snapshot of the item photo at sale time. */
+  image?: string;
 }
 
 export interface Debt {

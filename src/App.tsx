@@ -3,7 +3,7 @@ import { WifiOff, ShieldCheck, FileSpreadsheet } from "lucide-react";
 import type { TabKey } from "@/types";
 import { STORAGE_KEY, StoreProvider, useStore } from "@/lib/store";
 import { downloadExcel } from "@/lib/excel";
-import { ToastProvider } from "@/components/ui";
+import { ToastProvider, useToast } from "@/components/ui";
 import { Header } from "@/components/Header";
 import { BottomNav, Sidebar } from "@/components/Nav";
 import { SettingsSheet } from "@/components/SettingsSheet";
@@ -101,9 +101,22 @@ function Footer() {
 
 function Shell() {
   const { state } = useStore();
+  const toast = useToast();
   const [tab, setTab] = useState<TabKey>("inventory");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [booting, setBooting] = useState(true);
+
+  // Surface storage-quota problems, most often caused by adding too many photos.
+  useEffect(() => {
+    const onStorageError = () => {
+      toast(
+        "مساحة التخزين على الجهاز ممتلئة — احذف بعض صور الأصناف أو صدّر نسخة احتياطية",
+        "error",
+      );
+    };
+    window.addEventListener("batta-storage-error", onStorageError);
+    return () => window.removeEventListener("batta-storage-error", onStorageError);
+  }, [toast]);
 
   const latest = useRef(state);
   const dirty = useRef(false);

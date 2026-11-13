@@ -1,6 +1,17 @@
 /* بَطّة — service worker: network-first with an offline app-shell fallback. */
-const CACHE_NAME = "batta-shell-v1";
-const PRECACHE = ["/", "/index.html", "/logo.svg", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
+const CACHE_NAME = "batta-shell-v2";
+const PRECACHE = [
+  "/",
+  "/index.html",
+  "/logo.svg",
+  "/logo.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/manifest.webmanifest",
+  "/images/demo-usb-c.jpg",
+  "/images/demo-notebook.jpg",
+  "/images/demo-rice.jpg",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

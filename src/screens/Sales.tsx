@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
 import {
   Banknote,
+  Boxes,
   CalendarDays,
   Check,
   Download,
+  ImageIcon,
+  Maximize2,
   Minus,
   Plus,
   Receipt,
@@ -13,14 +16,16 @@ import {
   TrendingUp,
   User,
 } from "lucide-react";
-import type { Period, Sale } from "@/types";
+import type { Item, Period, Sale } from "@/types";
 import { computeStats, useStore } from "@/lib/store";
 import { downloadExcel } from "@/lib/excel";
-import { formatDate, formatTime, isInPeriod, num, safeNumber } from "@/lib/format";
+import { formatDate, formatTime, isInPeriod, num, safeNumber, toSyp } from "@/lib/format";
 import { cn } from "@/utils/cn";
 import { PageIntro } from "@/components/PageIntro";
+import { ItemThumb } from "@/components/ItemImage";
 import {
   Button,
+  Chip,
   ConfirmDialog,
   EmptyState,
   Field,
@@ -35,15 +40,112 @@ import {
   useToast,
 } from "@/components/ui";
 
+type SalesView = "stock" | "log";
+
+function StockCard({
+  item,
+  rate,
+  onSell,
+  onPhoto,
+}: {
+  item: Item;
+  rate: number;
+  onSell: (item: Item) => void;
+  onPhoto: (item: Item) => void;
+}) {
+  const out = item.qty <= 0;
+  const low = !out && item.qty <= 3;
+  return (
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card dark:border-white/[0.07] dark:bg-white/[0.02] dark:hover:border-brand-400/25">
+      <button
+        type="button"
+        onClick={() => item.image && onPhoto(item)}
+        aria-label={item.image ? `عرض صورة ${item.name}` : `${item.name} — لا توجد صورة`}
+        className={cn(
+          "relative block h-28 w-full overflow-hidden bg-linear-to-br from-slate-100 to-slate-50 text-slate-300 sm:h-32 dark:from-white/[0.06] dark:to-transparent dark:text-slate-600",
+          item.image ? "cursor-zoom-in" : "cursor-default",
+        )}
+      >
+        {item.image ? (
+          <>
+            <img
+              src={item.image}
+              alt={`صورة ${item.name}`}
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+            />
+            <span className="absolute bottom-2 left-2 flex h-6 w-6 items-center justify-center rounded-md bg-ink-950/55 text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
+              <Maximize2 className="h-3 w-3" />
+            </span>
+          </>
+        ) : (
+          <span className="flex h-full w-full flex-col items-center justify-center gap-1.5">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/70 text-[18px] font-extrabold text-slate-400 shadow-sm dark:bg-white/[0.06] dark:text-slate-300">
+              {item.name.trim().charAt(0) || "؟"}
+            </span>
+            <span className="text-[9px] font-bold opacity-70">بدون صورة</span>
+          </span>
+        )}
+        <span
+          className={cn(
+            "absolute right-2 top-2 z-10 rounded-md px-1.5 py-0.5 text-[9.5px] font-extrabold shadow-sm backdrop-blur",
+            out
+              ? "bg-rose-600/90 text-white"
+              : low
+                ? "bg-orange-500/90 text-white"
+                : "bg-white/90 text-emerald-700 dark:bg-ink-950/70 dark:text-emerald-300",
+          )}
+        >
+          {out ? "نفدت" : `${num(item.qty)} قطعة`}
+        </span>
+        <span className="absolute bottom-2 right-2 z-10 max-w-[82%] truncate rounded-md bg-ink-950/50 px-1.5 py-0.5 text-[9px] font-bold text-white backdrop-blur">
+          {item.category}
+        </span>
+        {out && (
+          <span className="absolute inset-0 bg-white/45 backdrop-blur-[1px] dark:bg-ink-950/45" />
+        )}
+      </button>
+
+      <div className="flex flex-1 flex-col p-2.5 sm:p-3">
+        <h3 className="truncate text-[12px] font-extrabold text-slate-800 sm:text-[12.5px] dark:text-slate-100">
+          {item.name}
+        </h3>
+        <div className="mt-auto flex items-end justify-between gap-1.5 pt-2">
+          <div className="min-w-0">
+            <Usd value={item.saleUsd} className="text-[15px] font-extrabold text-slate-900 dark:text-white" />
+            <Syp usd={item.saleUsd} rate={rate} className="mt-0.5 block text-[9.5px] font-bold text-brand-700 dark:text-brand-300" />
+          </div>
+          <Button
+            size="sm"
+            icon={ShoppingCart}
+            disabled={out}
+            onClick={() => onSell(item)}
+            className="!h-8 !gap-1 !px-2.5 !text-[10.5px]"
+            aria-label={`بيع ${item.name}`}
+          >
+            بيع
+          </Button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function Sales() {
   const { state, addSale, undoSale, markExported } = useStore();
   const toast = useToast();
   const rate = state.exchangeRate;
 
+  const [view, setView] = useState<SalesView>("stock");
   const [period, setPeriod] = useState<Period>("all");
   const [query, setQuery] = useState("");
+  const [stockQuery, setStockQuery] = useState("");
+  const [stockCategory, setStockCategory] = useState("الكل");
+  const [hideOut, setHideOut] = useState(true);
   const [saleOpen, setSaleOpen] = useState(false);
   const [undoTarget, setUndoTarget] = useState<Sale | null>(null);
+  const [photoTarget, setPhotoTarget] = useState<Item | null>(null);
   const [itemId, setItemId] = useState("");
   const [qty, setQty] = useState("1");
   const [customer, setCustomer] = useState("");
@@ -53,6 +155,31 @@ export default function Sales() {
   const allStats = computeStats(state, "all");
   const averageInvoice =
     allStats.salesCount > 0 ? allStats.salesTotalUsd / allStats.salesCount : 0;
+
+  const stockItems = useMemo(() => {
+    const q = stockQuery.trim().toLowerCase();
+    return state.items
+      .filter((item) => {
+        const matchesQuery =
+          !q || item.name.toLowerCase().includes(q) || item.category.toLowerCase().includes(q);
+        const matchesCategory = stockCategory === "الكل" || item.category === stockCategory;
+        const matchesAvailability = !hideOut || item.qty > 0;
+        return matchesQuery && matchesCategory && matchesAvailability;
+      })
+      .sort((a, b) => {
+        if ((a.qty > 0) !== (b.qty > 0)) return a.qty > 0 ? -1 : 1;
+        return a.name.localeCompare(b.name, "ar");
+      });
+  }, [state.items, stockQuery, stockCategory, hideOut]);
+
+  const stockTotals = useMemo(
+    () => ({
+      pieces: stockItems.reduce((acc, item) => acc + item.qty, 0),
+      cost: stockItems.reduce((acc, item) => acc + item.qty * item.purchaseUsd, 0),
+      sale: stockItems.reduce((acc, item) => acc + item.qty * item.saleUsd, 0),
+    }),
+    [stockItems],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -77,17 +204,20 @@ export default function Sales() {
   const selectedItem = state.items.find((item) => item.id === itemId);
   const quantity = safeNumber(qty);
   const totalUsd = selectedItem ? quantity * selectedItem.saleUsd : 0;
-  const profitUsd = selectedItem
-    ? quantity * (selectedItem.saleUsd - selectedItem.purchaseUsd)
-    : 0;
+  const profitUsd = selectedItem ? quantity * (selectedItem.saleUsd - selectedItem.purchaseUsd) : 0;
   const remaining = selectedItem ? selectedItem.qty - quantity : 0;
   const invalidQty = Boolean(
-    selectedItem &&
-      (quantity <= 0 || quantity > selectedItem.qty || !Number.isFinite(quantity)),
+    selectedItem && (quantity <= 0 || quantity > selectedItem.qty || !Number.isFinite(quantity)),
   );
 
-  const openSale = () => {
-    setItemId(state.items.find((i) => i.qty > 0)?.id ?? "");
+  const imageForSale = (sale: Sale) =>
+    state.items.find((item) => item.id === sale.itemId)?.image ?? sale.image;
+
+  const openSale = (preselect?: string) => {
+    const target = preselect
+      ? state.items.find((item) => item.id === preselect && item.qty > 0)
+      : undefined;
+    setItemId(target?.id ?? state.items.find((i) => i.qty > 0)?.id ?? "");
     setQty("1");
     setCustomer("");
     setError("");
@@ -102,10 +232,7 @@ export default function Sales() {
     const result = addSale({ itemId: selectedItem.id, qty: quantity, customer });
     if (!result.ok) return setError(result.error || "تعذّر تسجيل البيع");
     setSaleOpen(false);
-    toast(
-      `تم تسجيل بيع ${num(quantity)} × ${selectedItem.name} وخصمها من الجرد`,
-      "success",
-    );
+    toast(`تم تسجيل بيع ${num(quantity)} × ${selectedItem.name} وخصمها من الجرد`, "success");
   };
 
   const exportNow = () => {
@@ -119,14 +246,14 @@ export default function Sales() {
       <PageIntro
         eyebrow="نقطة البيع"
         title="المعاملات والمبيعات"
-        description="سجّل عمليات البيع بسرعة، وتُخصم الكميات من الجرد تلقائياً مع احتساب الربح من فرق سعر الشراء والبيع."
+        description="نظرة سريعة على البضاعة المتوفرة في «المبيع»، أو سجّل عمليات البيع وتُخصم الكميات من الجرد تلقائياً."
         icon={ShoppingCart}
         actions={
           <>
             <Button variant="outline" icon={Download} onClick={exportNow}>
               تصدير
             </Button>
-            <Button icon={Plus} onClick={openSale}>
+            <Button icon={Plus} onClick={() => openSale()}>
               عملية بيع جديدة
             </Button>
           </>
@@ -170,38 +297,153 @@ export default function Sales() {
 
       <div className="card mt-4 overflow-hidden sm:mt-5">
         <div className="flex flex-col gap-3 border-b border-slate-100 p-3.5 dark:border-white/5 sm:p-4">
-          <SectionHeader
-            icon={Receipt}
-            title="سجل عمليات البيع"
-            subtitle="الأحدث أولاً — يمكنك التراجع عن أي عملية وإرجاع الكمية للجرد"
-            action={
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="ابحث عن صنف أو زبون…"
-                    className="h-9 pr-9 text-[12px] sm:w-52"
-                    aria-label="بحث في المبيعات"
-                  />
-                </div>
-                <Segmented
-                  value={period}
-                  onChange={setPeriod}
-                  options={[
-                    { value: "today", label: "اليوم" },
-                    { value: "week", label: "أسبوع" },
-                    { value: "month", label: "شهر" },
-                    { value: "all", label: "الكل" },
-                  ]}
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <SectionHeader
+              icon={view === "stock" ? Boxes : Receipt}
+              title={view === "stock" ? "المبيع — البضاعة المتوفرة" : "سجل عمليات البيع"}
+              subtitle={
+                view === "stock"
+                  ? "نظرة سريعة ومبسطة على مخزون المحل الحالي مع إمكانية البيع مباشرة"
+                  : "الأحدث أولاً — يمكنك التراجع عن أي عملية وإرجاع الكمية للجرد"
+              }
+            />
+            <Segmented
+              value={view}
+              onChange={setView}
+              options={[
+                { value: "stock", label: "المبيع", icon: Boxes },
+                { value: "log", label: "سجل المبيعات", icon: Receipt },
+              ]}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative sm:max-w-xs sm:flex-1">
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              {view === "stock" ? (
+                <Input
+                  value={stockQuery}
+                  onChange={(event) => setStockQuery(event.target.value)}
+                  placeholder="ابحث في البضاعة المتوفرة…"
+                  className="h-9 pr-9 text-[12px]"
+                  aria-label="بحث في المبيع"
                 />
+              ) : (
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="ابحث عن صنف أو زبون…"
+                  className="h-9 pr-9 text-[12px]"
+                  aria-label="بحث في المبيعات"
+                />
+              )}
+            </div>
+            {view === "stock" ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setHideOut((value) => !value)}
+                  aria-pressed={hideOut}
+                  className={cn(
+                    "focus-ring inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition",
+                    hideOut
+                      ? "border-brand-500/30 bg-brand-50 text-brand-700 dark:border-brand-400/25 dark:bg-brand-500/10 dark:text-brand-300"
+                      : "border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400",
+                  )}
+                >
+                  <Check className={cn("h-3 w-3", !hideOut && "opacity-0")} />
+                  المتوفر فقط
+                </button>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1.5 text-[10.5px] font-bold text-slate-500 dark:bg-white/[0.05] dark:text-slate-400">
+                  {num(stockItems.length)} صنف · {num(stockTotals.pieces)} قطعة
+                </span>
               </div>
-            }
-          />
+            ) : (
+              <Segmented
+                value={period}
+                onChange={setPeriod}
+                options={[
+                  { value: "today", label: "اليوم" },
+                  { value: "week", label: "أسبوع" },
+                  { value: "month", label: "شهر" },
+                  { value: "all", label: "الكل" },
+                ]}
+              />
+            )}
+          </div>
+
+          {view === "stock" && (
+            <div className="-mx-0.5 flex items-center gap-1.5 overflow-x-auto px-0.5 pb-0.5">
+              <Chip
+                active={stockCategory === "الكل"}
+                onClick={() => setStockCategory("الكل")}
+                count={state.items.filter((item) => !hideOut || item.qty > 0).length}
+              >
+                الكل
+              </Chip>
+              {state.categories.map((category) => (
+                <Chip
+                  key={category}
+                  active={stockCategory === category}
+                  onClick={() => setStockCategory(category)}
+                  count={
+                    state.items.filter(
+                      (item) => item.category === category && (!hideOut || item.qty > 0),
+                    ).length
+                  }
+                >
+                  {category}
+                </Chip>
+              ))}
+            </div>
+          )}
         </div>
 
-        {filtered.length === 0 ? (
+        {view === "stock" ? (
+          stockItems.length === 0 ? (
+            <EmptyState
+              icon={Boxes}
+              title={state.items.length === 0 ? "لا توجد بضاعة في الجرد" : "لا توجد أصناف مطابقة"}
+              description={
+                state.items.length === 0
+                  ? "أضف أصنافاً من تبويب الجرد لتظهر هنا مباشرة في قسم المبيع."
+                  : hideOut
+                    ? "كل الأصناف المطابقة نفدت من المخزون — أضف كميات جديدة أو أوقف «المتوفر فقط»."
+                    : "جرّب تغيير التصنيف أو كلمة البحث."
+              }
+            />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-3 sm:gap-3 sm:p-4 xl:grid-cols-4 2xl:grid-cols-5">
+                {stockItems.map((item) => (
+                  <StockCard
+                    key={item.id}
+                    item={item}
+                    rate={rate}
+                    onSell={(target) => openSale(target.id)}
+                    onPhoto={(target) => setPhotoTarget(target)}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-brand-50/40 px-4 py-3.5 dark:border-white/5 dark:bg-brand-500/[0.04]">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  المعروض: {num(stockItems.length)} صنف · {num(stockTotals.pieces)} قطعة
+                </span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  <span>
+                    قيمة بيع: <Usd value={stockTotals.sale} className="font-extrabold text-brand-700 dark:text-brand-300" />
+                  </span>
+                  <span>
+                    قيمة بيع ل.س: <Syp usd={stockTotals.sale} rate={rate} className="font-extrabold text-brand-700 dark:text-brand-300" />
+                  </span>
+                  <span className="hidden sm:inline">
+                    تكلفة: <Usd value={stockTotals.cost} className="font-extrabold text-slate-800 dark:text-white" />
+                  </span>
+                </div>
+              </div>
+            </>
+          )
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={ShoppingCart}
             title={state.sales.length === 0 ? "لا توجد مبيعات بعد" : "لا توجد معاملات في هذه الفترة"}
@@ -211,7 +453,7 @@ export default function Sales() {
                 : "جرّب تغيير فترة العرض أو كلمة البحث."
             }
             action={
-              <Button icon={Plus} onClick={openSale}>
+              <Button icon={Plus} onClick={() => openSale()}>
                 تسجيل عملية بيع
               </Button>
             }
@@ -258,10 +500,18 @@ export default function Sales() {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <p className="text-[12px] font-extrabold text-slate-800 dark:text-slate-100">
-                            {sale.itemName}
-                          </p>
-                          <p className="mt-0.5 text-[10px] font-bold text-slate-400">{sale.category}</p>
+                          <div className="flex items-center gap-2.5">
+                            <ItemThumb
+                              item={{ name: sale.itemName, image: imageForSale(sale) }}
+                              size="sm"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-[12px] font-extrabold text-slate-800 dark:text-slate-100">
+                                {sale.itemName}
+                              </p>
+                              <p className="mt-0.5 text-[10px] font-bold text-slate-400">{sale.category}</p>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <span className="num inline-flex min-w-7 justify-center rounded-md bg-slate-100 px-2 py-1 text-[11px] font-extrabold text-slate-600 dark:bg-white/[0.06] dark:text-slate-200">
@@ -322,16 +572,22 @@ export default function Sales() {
                     className="rounded-2xl border border-slate-200/80 p-3.5 dark:border-white/[0.07]"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-[12.5px] font-extrabold text-slate-800 dark:text-slate-100">
-                          {sale.itemName}
-                        </p>
-                        <p className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-slate-400">
-                          <CalendarDays className="h-3 w-3" />
-                          {formatDate(sale.date)} · {formatTime(sale.date)}
-                        </p>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <ItemThumb
+                          item={{ name: sale.itemName, image: imageForSale(sale) }}
+                          size="md"
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-[12.5px] font-extrabold text-slate-800 dark:text-slate-100">
+                            {sale.itemName}
+                          </p>
+                          <p className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                            <CalendarDays className="h-3 w-3" />
+                            {formatDate(sale.date)} · {formatTime(sale.date)}
+                          </p>
+                        </div>
                       </div>
-                      <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500 dark:bg-white/[0.06] dark:text-slate-300">
+                      <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500 dark:bg-white/[0.06] dark:text-slate-300">
                         × {num(sale.qty)}
                       </span>
                     </div>
@@ -437,15 +693,18 @@ export default function Sales() {
           {selectedItem && (
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-[12.5px] font-extrabold text-slate-800 dark:text-white">
-                    {selectedItem.name}
-                  </p>
-                  <p className="mt-0.5 text-[10.5px] font-bold text-slate-400">{selectedItem.category}</p>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <ItemThumb item={selectedItem} size="md" />
+                  <div className="min-w-0">
+                    <p className="truncate text-[12.5px] font-extrabold text-slate-800 dark:text-white">
+                      {selectedItem.name}
+                    </p>
+                    <p className="mt-0.5 text-[10.5px] font-bold text-slate-400">{selectedItem.category}</p>
+                  </div>
                 </div>
                 <span
                   className={cn(
-                    "rounded-md px-2 py-1 text-[10px] font-extrabold",
+                    "shrink-0 rounded-md px-2 py-1 text-[10px] font-extrabold",
                     selectedItem.qty > 3
                       ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300"
                       : "bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-300",
@@ -528,9 +787,7 @@ export default function Sales() {
                   {profitUsd < 0 ? "−" : "+"}
                   {num(Math.abs(profitUsd), true)} $
                 </p>
-                <p className="mt-0.5 text-[9px] font-bold text-slate-400">
-                  {num(quantity)} وحدة
-                </p>
+                <p className="mt-0.5 text-[9px] font-bold text-slate-400">{num(quantity)} وحدة</p>
               </div>
               <div>
                 <p className="text-[9.5px] font-bold text-slate-400">يتبقى في الجرد</p>
@@ -548,6 +805,69 @@ export default function Sales() {
             </p>
           )}
         </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(photoTarget)}
+        onClose={() => setPhotoTarget(null)}
+        title={photoTarget?.name ?? "صورة الصنف"}
+        subtitle={photoTarget ? `${photoTarget.category} · متوفر ${num(photoTarget.qty)} قطعة` : undefined}
+        icon={ImageIcon}
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPhotoTarget(null)}>
+              إغلاق
+            </Button>
+            <Button
+              icon={ShoppingCart}
+              disabled={!photoTarget || photoTarget.qty <= 0}
+              onClick={() => {
+                if (photoTarget) openSale(photoTarget.id);
+                setPhotoTarget(null);
+              }}
+            >
+              بيع هذا الصنف
+            </Button>
+          </>
+        }
+      >
+        {photoTarget && (
+          <>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]">
+              {photoTarget.image ? (
+                <img
+                  src={photoTarget.image}
+                  alt={`صورة ${photoTarget.name}`}
+                  className="max-h-[46vh] w-full object-contain"
+                />
+              ) : (
+                <div className="flex h-40 flex-col items-center justify-center gap-2 text-slate-300 dark:text-slate-600">
+                  <ImageIcon className="h-8 w-8" />
+                  <p className="text-[11px] font-bold">لا توجد صورة محفوظة لهذا الصنف</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-slate-50 p-2.5 text-center dark:bg-white/[0.03]">
+                <p className="text-[9px] font-bold text-slate-400">البيع بالدولار</p>
+                <Usd value={photoTarget.saleUsd} className="mt-0.5 text-[12.5px] font-extrabold text-slate-800 dark:text-white" />
+              </div>
+              <div className="rounded-xl bg-slate-50 p-2.5 text-center dark:bg-white/[0.03]">
+                <p className="text-[9px] font-bold text-slate-400">البيع بالليرة</p>
+                <span className="num mt-0.5 block text-[12px] font-extrabold text-brand-700 dark:text-brand-300">
+                  {num(toSyp(photoTarget.saleUsd, rate))}
+                </span>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-2.5 text-center dark:bg-white/[0.03]">
+                <p className="text-[9px] font-bold text-slate-400">المتوفر</p>
+                <p className="num mt-0.5 text-[12.5px] font-extrabold text-slate-800 dark:text-white">
+                  {num(photoTarget.qty)} قطعة
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </Modal>
 
       <ConfirmDialog

@@ -6,6 +6,7 @@ import {
   Database,
   Download,
   FileSpreadsheet,
+  ImageIcon,
   Moon,
   Palette,
   Pencil,
@@ -25,6 +26,7 @@ import {
 import { APP_VERSION, useStore } from "@/lib/store";
 import { downloadBackup, downloadExcel, shareExcel } from "@/lib/excel";
 import { formatDateTime, num } from "@/lib/format";
+import { dataUrlBytes, formatBytes } from "@/lib/image";
 import { cn } from "@/utils/cn";
 import { DuckMark } from "./Logo";
 import {
@@ -392,6 +394,28 @@ export function SettingsSheet({
                     مسح البيانات
                   </Button>
                 </div>
+                <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2 dark:bg-white/[0.03]">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    صور البضاعة
+                  </span>
+                  <span className="num text-[10px] font-extrabold text-slate-700 dark:text-slate-200">
+                    {num(state.items.filter((item) => item.image).length)} صورة
+                    {" · "}
+                    {formatBytes(
+                      state.items.reduce(
+                        (acc, item) =>
+                          acc +
+                          (item.image?.startsWith("data:") ? dataUrlBytes(item.image) : 0),
+                        0,
+                      ),
+                    )}
+                  </span>
+                </div>
+                <p className="mt-2 text-[9.5px] leading-relaxed text-slate-400">
+                  تُضغط الصور وتصغيرها تلقائياً قبل الحفظ لتوفير مساحة الجهاز. عند امتلاء التخزين،
+                  صدّر نسخة احتياطية واحذف الصور غير الضرورية.
+                </p>
               </Section>
 
               <Section icon={Tag} title="التصنيفات" description="أضف أو عدّل تصنيفات الجرد" tone="slate">

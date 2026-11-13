@@ -42,13 +42,13 @@ export const DEFAULT_CATEGORIES = [
 
 function makeSeed(): StoreState {
   const now = new Date().toISOString();
-  const rawItems: Array<[string, string, number, number, number]> = [
-    ["وصلة شحن سريع USB-C", "إلكترونيات", 18, 1.2, 2.5],
+  const rawItems: Array<[string, string, number, number, number, string?]> = [
+    ["وصلة شحن سريع USB-C", "إلكترونيات", 18, 1.2, 2.5, "/images/demo-usb-c.jpg"],
     ["سماعات بلوتوث لاسلكية", "إلكترونيات", 7, 8.5, 14],
     ["شاحن جداري 20 واط", "إلكترونيات", 24, 3.2, 6],
-    ["دفتر 100 ورقة", "قرطاسية", 64, 0.6, 1.2],
+    ["دفتر 100 ورقة", "قرطاسية", 64, 0.6, 1.2, "/images/demo-notebook.jpg"],
     ["طقم أقلام حبر جاف", "قرطاسية", 40, 0.35, 0.9],
-    ["أرز بسمتي 1 كغ", "مواد غذائية", 35, 1.4, 2.1],
+    ["أرز بسمتي 1 كغ", "مواد غذائية", 35, 1.4, 2.1, "/images/demo-rice.jpg"],
     ["زيت زيتون 1 لتر", "مواد غذائية", 12, 5.5, 8.5],
     ["سكر ناعم 1 كغ", "مواد غذائية", 50, 0.7, 1.1],
     ["مصباح LED 12 واط", "مستلزمات منزلية", 21, 1.1, 2.2],
@@ -57,7 +57,7 @@ function makeSeed(): StoreState {
     ["علبة ألوان مائية", "قرطاسية", 15, 1.8, 3.5],
   ];
 
-  const items: Item[] = rawItems.map(([name, category, qty, purchaseUsd, saleUsd], i) => ({
+  const items: Item[] = rawItems.map(([name, category, qty, purchaseUsd, saleUsd, image], i) => ({
     id: `itm_${i + 1}`,
     name,
     category,
@@ -65,6 +65,7 @@ function makeSeed(): StoreState {
     purchaseUsd,
     saleUsd,
     createdAt: daysAgo(30 + i, 10),
+    ...(image ? { image } : {}),
   }));
 
   const saleSeed: Array<[number, number, string, number, number]> = [
@@ -352,6 +353,7 @@ interface AddItemInput {
   qty: number;
   purchaseUsd: number;
   saleUsd: number;
+  image?: string;
 }
 
 interface AddSaleInput {
@@ -425,7 +427,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
-      /* storage may be unavailable — the app keeps working in memory */
+      /* Storage full (often many photos) or unavailable: keep working in memory and warn. */
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("batta-storage-error"));
+      }
     }
   }, [state]);
 
@@ -463,6 +468,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             purchaseUsd: safeNumber(input.purchaseUsd),
             saleUsd: safeNumber(input.saleUsd),
             createdAt: new Date().toISOString(),
+            ...(input.image ? { image: input.image } : {}),
           },
           ...prev.items,
         ],
@@ -489,6 +495,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 qty: safeNumber(input.qty),
                 purchaseUsd: safeNumber(input.purchaseUsd),
                 saleUsd: safeNumber(input.saleUsd),
+                image: input.image || undefined,
               }
             : item,
         ),
@@ -526,6 +533,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         unitCostUsd: item.purchaseUsd,
         date: input.date || new Date().toISOString(),
         exchangeRate: state.exchangeRate,
+        ...(item.image ? { image: item.image } : {}),
       };
       setState((prev) => ({
         ...prev,
