@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bta</string>
+    <string name="title_activity_main">Bta</string>
+    <string name="package_name">com.bta.app</string>
+    <string name="custom_url_scheme">com.bta.app</string>
+</resources>
